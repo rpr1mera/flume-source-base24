@@ -1,11 +1,14 @@
-package com.woombatcg.flume.source;
+package com.woombatcg.hadoop.flume.source;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import com.woombatcg.hadoop.util.base24.Functions;
 
 public class Base24Client {
     public static void main(String[] args) {
@@ -23,14 +26,36 @@ public class Base24Client {
         try {
             byte[] fileBytes = readFile();
             String fileString = new String(fileBytes, "utf-8");
-            System.out.print(fileString);
-            Socket socket = new Socket("127.0.0.1", 8000);
+            System.out.println("hex string: " + fileString);
+            byte[] bytes = Functions.hexStringToByteArray(fileString);
+
+            String s1 = new String(bytes, "utf-8");
+
+            System.out.println("bytes: " + s1);
+            Socket socket = new Socket("127.0.0.1", 9000);
             OutputStream output = socket.getOutputStream();
+            InputStream input = socket.getInputStream();
 
-            PrintWriter writer = new PrintWriter(output, true);
-            writer.println(fileString);
+//            PrintWriter writer = new PrintWriter(output, true);
+//            writer.println(fileString);
+//
+//            writer.close();
 
-            writer.close();
+            int sleepTime = 500;
+            int limit = 10;
+            byte[] inBytes = new byte[1210];
+
+            int i = 0;
+            while (i < limit) {
+                output.write(bytes);
+                input.read(inBytes);
+//                String s = new String(inBytes);
+                System.out.println(new String(inBytes));
+                Thread.sleep(sleepTime);
+                i++;
+            }
+
+            output.close();
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -39,7 +64,8 @@ public class Base24Client {
 
     public static byte[] readFile() throws IOException {
         return Files.readAllBytes(
-                Paths.get("/home/rprimera/woombat/davivienda/base24/dev/flume-source-base24/src/com/woombatcg/flume/source/0230_respuesta_notificacion_avance.txt")
+                Paths.get("resources/input")
         );
     }
+
 }

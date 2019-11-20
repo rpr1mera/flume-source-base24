@@ -1,12 +1,11 @@
-package com.woombatcg.hadoop.util;
+package com.woombatcg.hadoop.util.base24;
 
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class Base24ConfigReaderTest {
     @Test
@@ -28,5 +27,16 @@ class Base24ConfigReaderTest {
         List<String> matches = bcr.getConfigurationFields(s);
 
         System.out.println(matches);
+    }
+
+    @Test
+    void buildConfig() {
+        Base24ConfigReader bcr = new Base24ConfigReader();
+        List<String> fields = Arrays.asList("P-1 M", "P-17 M", "S-102 C");
+        List<Base24EMFField> config = bcr.buildConfig(fields);
+
+        for (Base24EMFField field: config) {
+            System.out.println(field);
+        }
     }
 }

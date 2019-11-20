@@ -1,4 +1,4 @@
-package com.woombatcg.hadoop.util;
+package com.woombatcg.hadoop.util.base24;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -18,7 +18,19 @@ public class Base24ConfigReader {
         return matches;
     };
 
-    public List<HashMap<String, String>> buildConfig() {
+    public List<Base24EMFField> buildConfig(List<String> items) {
+        List<Base24EMFField> config = new ArrayList<Base24EMFField>();
 
+        for (String item: items) {
+            String[] parts = item.split("\\s");
+            String requirement = parts[1];
+            String[] left = parts[0].split("-");
+            String identifier = left[0];
+            int index = Integer.parseInt(left[1]);
+
+            config.add(new Base24EMFField(identifier, index, requirement));
+        }
+
+        return config;
     }
 };
