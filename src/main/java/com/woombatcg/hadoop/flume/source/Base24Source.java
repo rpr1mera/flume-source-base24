@@ -20,21 +20,23 @@ package com.woombatcg.hadoop.flume.source;
  */
 
 import java.io.*;
+import java.math.BigInteger;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
-import java.nio.channels.Channels;
 import java.nio.channels.ClosedByInterruptException;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 //import com.woombatcg.hadoop.util.base24.Functions;
+import com.google.common.base.Charsets;
+import com.woombatcg.hadoop.util.base24.Base24EventFormatter;
 import org.apache.flume.ChannelException;
 import org.apache.flume.Context;
 import org.apache.flume.CounterGroup;
@@ -46,11 +48,17 @@ import org.apache.flume.conf.Configurable;
 import org.apache.flume.conf.Configurables;
 import org.apache.flume.event.EventBuilder;
 import org.apache.flume.source.AbstractSource;
+import org.jpos.iso.ISOException;
+import org.jpos.iso.ISOPackager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Charsets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+
+// JPOS
+import org.jpos.iso.packager.BASE24Packager;
+import org.jpos.iso.packager.XMLPackager;
+import org.jpos.iso.ISOMsg;
 
 /**
  * <p>
@@ -112,9 +120,9 @@ public class Base24Source extends AbstractSource implements Configurable,
 
     private String hostName;
     private int port;
-    private int maxLineLength;
-    private boolean ackEveryEvent;
-    private String hexStartOfMessage;
+    private int bufferSize;
+    private boolean base24Interactive;
+    private String outputFormat;
 
     private CounterGroup counterGroup;
     private ServerSocketChannel serverSocketChannel;
@@ -136,30 +144,32 @@ public class Base24Source extends AbstractSource implements Configurable,
     public void configure(Context context) {
         String hostKey = Base24SourceConfigurationConstants.CONFIG_HOSTNAME;
         String portKey = Base24SourceConfigurationConstants.CONFIG_PORT;
-        String ackEventKey = Base24SourceConfigurationConstants.CONFIG_ACKEVENT;
-        String hexStartOfMessageKey = Base24SourceConfigurationConstants.HEX_START_OF_MESSAGE;
+        String base24InteractiveKey = Base24SourceConfigurationConstants.BASE24_INTERACTIVE;
+        String bufferSizeKey = Base24SourceConfigurationConstants.BUFFER_SIZE;
+        String outputFormatKey = Base24SourceConfigurationConstants.OUTPUT_FORMAT;
 
         Configurables.ensureRequiredNonNull(context, hostKey, portKey);
 
         hostName = context.getString(hostKey);
         port = context.getInteger(portKey);
-        ackEveryEvent = context.getBoolean(ackEventKey, true);
-        maxLineLength = context.getInteger(
-                Base24SourceConfigurationConstants.CONFIG_MAX_LINE_LENGTH,
-                Base24SourceConfigurationConstants.DEFAULT_MAX_LINE_LENGTH
+        base24Interactive = context.getBoolean(base24InteractiveKey, true);
+
+        bufferSize = context.getInteger(
+                bufferSizeKey,
+                Base24SourceConfigurationConstants.DEFAULT_BUFFER_SIZE
         );
 
-//        utilities = new Functions();
-        hexStartOfMessage = context.getString(
-                Base24SourceConfigurationConstants.HEX_START_OF_MESSAGE,
-                Base24SourceConfigurationConstants.DEFAULT_HEX_START_OF_MESSAGE
+        outputFormat = context.getString(
+                outputFormatKey,
+                Base24SourceConfigurationConstants.DEFAULT_OUTPUT_FORMAT
         );
+
     }
 
     @Override
     public void start() {
 
-        logger.info("Source starting");
+        logger.info("Base24 Source starting");
 
         counterGroup.incrementAndGet("open.attempts");
 
@@ -180,12 +190,12 @@ public class Base24Source extends AbstractSource implements Configurable,
             throw new FlumeException(e);
         }
 
-        AcceptHandler acceptRunnable = new AcceptHandler(maxLineLength);
+        AcceptHandler acceptRunnable = new AcceptHandler(bufferSize, outputFormat);
         acceptThreadShouldStop.set(false);
         acceptRunnable.counterGroup = counterGroup;
         acceptRunnable.handlerService = handlerService;
         acceptRunnable.shouldStop = acceptThreadShouldStop;
-        acceptRunnable.ackEveryEvent = ackEveryEvent;
+        acceptRunnable.base24Interactive = base24Interactive;
         acceptRunnable.source = this;
         acceptRunnable.serverSocketChannel = serverSocketChannel;
 
@@ -262,12 +272,14 @@ public class Base24Source extends AbstractSource implements Configurable,
         private ExecutorService handlerService;
         private EventDrivenSource source;
         private AtomicBoolean shouldStop;
-        private boolean ackEveryEvent;
+        private boolean base24Interactive;
+        private String outputFormat;
 
-        private final int maxLineLength;
+        private final int bufferSize;
 
-        public AcceptHandler(int maxLineLength) {
-            this.maxLineLength = maxLineLength;
+        public AcceptHandler(int bufferSize, String outputFormat) {
+            this.bufferSize = bufferSize;
+            this.outputFormat = outputFormat;
         }
 
         @Override
@@ -278,12 +290,13 @@ public class Base24Source extends AbstractSource implements Configurable,
                 try {
                     SocketChannel socketChannel = serverSocketChannel.accept();
 
-                    Base24SocketHandler request = new Base24SocketHandler(maxLineLength);
+                    Base24SocketHandler request = new Base24SocketHandler(bufferSize, outputFormat);
 
                     request.socketChannel = socketChannel;
                     request.counterGroup = counterGroup;
                     request.source = source;
-                    request.ackEveryEvent = ackEveryEvent;
+                    request.base24Interactive = base24Interactive;
+                    request.outputFormat = outputFormat;
 
                     handlerService.submit(request);
 
@@ -305,12 +318,14 @@ public class Base24Source extends AbstractSource implements Configurable,
         private Source source;
         private CounterGroup counterGroup;
         private SocketChannel socketChannel;
-        private boolean ackEveryEvent;
+        private boolean base24Interactive;
+        private String outputFormat;
 
-        private final int maxLineLength;
+        private final int bufferSize;
 
-        public Base24SocketHandler(int maxLineLength) {
-            this.maxLineLength = maxLineLength;
+        public Base24SocketHandler(int bufferSize, String outputFormat) {
+            this.bufferSize = bufferSize;
+            this.outputFormat = outputFormat;
         }
 
         /**
@@ -326,7 +341,7 @@ public class Base24Source extends AbstractSource implements Configurable,
          * <p>
          * Note: this method blocks on new data arriving.
          *
-         * @param buffer The buffer to fill
+         * @param buffer        The buffer to fill
          * @param socketChannel The SocketChannel to read the data from
          * @return number of characters read
          * @throws IOException
@@ -341,7 +356,7 @@ public class Base24Source extends AbstractSource implements Configurable,
 //            int charsRead = reader.read(buffer);
             int bytesRead = socketChannel.read(buffer);
 
-            counterGroup.addAndGet("characters.received", Long.valueOf(bytesRead));
+            counterGroup.addAndGet("bytes.received", Long.valueOf(bytesRead));
 
             // flip so the data can be consumed
             buffer.flip();
@@ -355,13 +370,13 @@ public class Base24Source extends AbstractSource implements Configurable,
             Event event = null;
 
             try {
-                ByteBuffer buffer = ByteBuffer.allocate(maxLineLength);
+                ByteBuffer buffer = ByteBuffer.allocate(bufferSize);
                 buffer.flip(); // flip() so fill() sees buffer as initially empty
 
                 while (true) {
                     // this method blocks until new data is available in the socket
                     int bytesRead = fill(buffer, socketChannel);
-                    logger.debug("Chars read = {}", bytesRead);
+                    logger.debug("Bytes read = {}", bytesRead);
 
                     if (bytesRead == -1) {
                         // if we received EOF before last event processing attempt, then we
@@ -377,8 +392,8 @@ public class Base24Source extends AbstractSource implements Configurable,
                 socketChannel.close();
 
                 counterGroup.incrementAndGet("sessions.completed");
-            } catch (IOException e) {
-                logger.debug("Caught IOException while trying to prepare the buffers:");
+            } catch (Exception e) {
+                logger.debug("Caught Exception while trying to prepare the buffers:");
                 e.printStackTrace();
                 counterGroup.incrementAndGet("sessions.broken");
             }
@@ -393,25 +408,85 @@ public class Base24Source extends AbstractSource implements Configurable,
          * buffer should have position @ beginning of unprocessed data. <br/>
          * buffer should have limit @ end of unprocessed data. <br/>
          *
-         * @param buffer The buffer containing data to process
+         * @param buffer        The buffer containing data to process
          * @param socketChannel The channel back to the client
          * @return number of events successfully processed
          * @throws IOException
          */
         private int processEvents(ByteBuffer buffer, SocketChannel socketChannel)
-                throws IOException {
+                throws IOException, Exception {
 
-            int numProcessed = 0;
-            int limit = buffer.limit();
+            int eventsCount = 0;
 
             byte[] body = new byte[buffer.remaining()];
             buffer.get(body);
 
             String s = new String(body, StandardCharsets.US_ASCII);
-            logger.debug("ASCII Encoding" + s);
+            logger.debug("msg.fullASCIIEncoding = " + s);
 //            System.out.print(new String(body, StandardCharsets.US_ASCII));
 
-            Event event = EventBuilder.withBody(body);
+            // JPOS Base24 handling
+            ISOPackager customPackager = new BASE24Packager();
+            ISOMsg msg = new ISOMsg();
+            msg.setPackager(customPackager);
+
+
+            byte[] prefixMsgSizeBytes = Arrays.copyOfRange(body, 0, 2);
+            int prefixMsgSize = new BigInteger(prefixMsgSizeBytes).intValue();
+            logger.debug("msg.byteSizePrefix = " + prefixMsgSize);
+
+            byte[] isoLiteralBytes = Arrays.copyOfRange(body, 2, 5);
+            logger.debug("msg.isoLiteral = " + new String(isoLiteralBytes, StandardCharsets.US_ASCII));
+
+            byte[] base24HeaderBytes = Arrays.copyOfRange(body, 5, 14);
+            logger.debug("msg.base24Header = " + new String(base24HeaderBytes, StandardCharsets.US_ASCII));
+
+            byte[] msgBytes = Arrays.copyOfRange(body, 14, body.length);
+
+            String s1 = new String(msgBytes, StandardCharsets.US_ASCII);
+            logger.debug("msg.noHeaderASCIIEncoding = " + s1);
+
+            try {
+                msg.unpack(msgBytes);
+                if (logger.isDebugEnabled()){
+
+                    for (int i = 0; i < 129; i++) {
+                        System.out.println(
+                                String.format(
+                                        "field: %s-%s %s, value: %s",
+                                        (i < 64 ? "P": "S"),
+                                        i,
+                                        msg.getPackager().getFieldDescription(msg, i),
+                                        msg.getString(i)
+                                )
+                        );
+                    }
+                }
+            } catch (ISOException e) {
+                logger.error("An error occurred while trying to unpack the message");
+                e.printStackTrace();
+            }
+
+//            logger.debug("msg.parsedBase24Message = " + msg.toString());
+
+            byte[] eventBody;
+
+            String format = outputFormat;
+            try {
+                eventBody = Base24EventFormatter.handler(msg, format);
+
+            } catch (Exception e) {
+                logger.error(
+                        String.format(
+                                "An error occurred trying to convert base24 message to a %s event",
+                                format
+                        )
+                );
+                throw(e);
+            }
+
+            logger.info(String.format("Event sent = \n%s", new String(eventBody, Charsets.US_ASCII )));
+            Event event = EventBuilder.withBody(eventBody);
 
             // process event
             ChannelException ex = null;
@@ -424,11 +499,26 @@ public class Base24Source extends AbstractSource implements Configurable,
             if (ex == null) {
                 counterGroup.incrementAndGet("events.processed");
                 logger.warn(counterGroup.toString());
-                numProcessed++;
-                if (ackEveryEvent) {
+                eventsCount++;
+
+                if (base24Interactive) {
                     // The base24 answer message should be written to the socket here.
-//                    writer.write("OK\n");
-                    socketChannel.write(ByteBuffer.wrap(body.clone()));
+                    byte[] msgResponseBytes = Base24ResponseLogic.handle(msg);
+                    int fullMsgResponseLength = (
+                            2 + isoLiteralBytes.length + base24HeaderBytes.length + msgResponseBytes.length
+                    );
+
+                    byte[] fullMsgResponseBytes = new byte[fullMsgResponseLength];
+
+                    ByteBuffer buff = ByteBuffer.wrap(fullMsgResponseBytes);
+                    buff.put(BigInteger.valueOf(fullMsgResponseLength).toByteArray());
+                    buff.put(isoLiteralBytes);
+                    buff.put(base24HeaderBytes);
+                    buff.put(msgResponseBytes);
+
+                    byte[] response = buff.array();
+
+                    socketChannel.write(ByteBuffer.wrap(response));
                 }
             } else {
                 counterGroup.incrementAndGet("events.failed");
@@ -438,10 +528,9 @@ public class Base24Source extends AbstractSource implements Configurable,
 //            writer.flush();
 
 
-        return numProcessed;
+            return eventsCount;
+        }
+
+
     }
-
-
-
-}
 }

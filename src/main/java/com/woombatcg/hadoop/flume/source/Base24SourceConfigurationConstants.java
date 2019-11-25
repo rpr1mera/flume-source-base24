@@ -33,20 +33,18 @@ public class Base24SourceConfigurationConstants {
 
 
     /**
-     * Ack every event received with an "OK" back to the sender
+     * Attempt to answer the received message via base24 response handler logic
      */
-    public static final String CONFIG_ACKEVENT = "ack-every-event";
+    public static final String BASE24_INTERACTIVE = "b24-interactive";
 
     /**
      * Maximum line length per event.
      */
-    public static final String CONFIG_MAX_LINE_LENGTH = "max-line-length";
-    public static final int DEFAULT_MAX_LINE_LENGTH = 9680;
+    public static final String BUFFER_SIZE = "bufferSize";
+    public static final int DEFAULT_BUFFER_SIZE = 8192;
 
-    /**
-     * Hex start of message
-     */
-    public static final String  HEX_START_OF_MESSAGE = "hex-som";
-    public static final String DEFAULT_HEX_START_OF_MESSAGE = "04ba";
+    public static final String OUTPUT_FORMAT = "outputFormat";
+    public static final String DEFAULT_OUTPUT_FORMAT = "base24";
+
 }
 

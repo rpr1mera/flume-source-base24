@@ -1,4 +1,4 @@
-package com.woombatcg.hadoop.flume.source;
+package com.woombatcg.hadoop.util.base24;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -6,6 +6,7 @@ import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import com.woombatcg.hadoop.util.base24.Functions;
@@ -14,22 +15,13 @@ public class Base24Client {
     public static void main(String[] args) {
         System.out.println("Hello, I'm a base24 client");
 
-//        try {
-//            for (byte item: readFile()) {
-//                System.out.print(item);
-//            }
-//
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-
         try {
             byte[] fileBytes = readFile();
-            String fileString = new String(fileBytes, "utf-8");
+            String fileString = new String(fileBytes, StandardCharsets.UTF_8);
             System.out.println("hex string: " + fileString);
             byte[] bytes = Functions.hexStringToByteArray(fileString);
 
-            String s1 = new String(bytes, "utf-8");
+            String s1 = new String(bytes, StandardCharsets.UTF_8);
 
             System.out.println("bytes: " + s1);
             Socket socket = new Socket("127.0.0.1", 9000);

@@ -1,5 +1,7 @@
 package com.woombatcg.hadoop.util.base24;
 
+import org.jpos.iso.ISOMsg;
+
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -15,7 +17,7 @@ public class Functions {
         return data;
     }
 
-    private List<byte[]> split(byte[] array, byte[] delimiter) {
+    public List<byte[]> split(byte[] array, byte[] delimiter) {
         List<byte[]> byteArrays = new LinkedList<byte[]>();
         if (delimiter.length == 0) {
             return byteArrays;
@@ -41,4 +43,5 @@ public class Functions {
 
         return byteArrays;
     }
+
 }
