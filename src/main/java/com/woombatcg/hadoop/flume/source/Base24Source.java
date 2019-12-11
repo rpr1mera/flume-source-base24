@@ -60,58 +60,7 @@ import org.jpos.iso.packager.BASE24Packager;
 import org.jpos.iso.packager.XMLPackager;
 import org.jpos.iso.ISOMsg;
 
-/**
- * <p>
- * A Base24-like source that listens on a given port and turns each line of text
- * into an event.
- * </p>
- * <p>
- * This source, primarily built for testing and exceedingly simple systems, acts
- * like <tt>nc -k -l [host] [port]</tt>. In other words, it opens a specified
- * port and listens for data. The expectation is that the supplied data is
- * newline separated text. Each line of text is turned into a Flume event and
- * sent via the connected channel.
- * </p>
- * <p>
- * Most testing has been done by using the <tt>nc</tt> client but other,
- * similarly implemented, clients should work just fine.
- * </p>
- * <p>
- * <b>Configuration options</b>
- * </p>
- * <table>
- * <tr>
- * <th>Parameter</th>
- * <th>Description</th>
- * <th>Unit / Type</th>
- * <th>Default</th>
- * </tr>
- * <tr>
- * <td><tt>bind</tt></td>
- * <td>The hostname or IP to which the source will bind.</td>
- * <td>Hostname or IP / String</td>
- * <td>none (required)</td>
- * </tr>
- * <tr>
- * <td><tt>port</tt></td>
- * <td>The port to which the source will bind and listen for events.</td>
- * <td>TCP port / int</td>
- * <td>none (required)</td>
- * </tr>
- * <tr>
- * <td><tt>max-line-length</tt></td>
- * <td>The maximum # of chars a line can be per event (including newline).</td>
- * <td>Number of ascii characters / int</td>
- * <td>512</td>
- * </tr>
- * </table>
- * <p>
- * <b>Metrics</b>
- * </p>
- * <p>
- * TODO
- * </p>
- */
+
 public class Base24Source extends AbstractSource implements Configurable,
         EventDrivenSource {
 
@@ -511,7 +460,16 @@ public class Base24Source extends AbstractSource implements Configurable,
                     byte[] fullMsgResponseBytes = new byte[fullMsgResponseLength];
 
                     ByteBuffer buff = ByteBuffer.wrap(fullMsgResponseBytes);
-                    buff.put(BigInteger.valueOf(fullMsgResponseLength).toByteArray());
+
+
+                    byte[] prefixSizeBytes = new byte[2];
+                    if (fullMsgResponseLength < 256) {
+                        prefixSizeBytes[1] = BigInteger.valueOf(fullMsgResponseLength).toByteArray()[0];
+                    } else {
+                        prefixSizeBytes = BigInteger.valueOf(fullMsgResponseLength).toByteArray();
+                    }
+
+                    buff.put(prefixSizeBytes);
                     buff.put(isoLiteralBytes);
                     buff.put(base24HeaderBytes);
                     buff.put(msgResponseBytes);
