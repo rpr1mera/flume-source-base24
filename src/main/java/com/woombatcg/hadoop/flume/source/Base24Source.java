@@ -315,7 +315,7 @@ public class Base24Source extends AbstractSource implements Configurable,
                             break;
                         }
                     } catch (IOException e) {
-                        logger.debug("Client {} closed connection", socketChannel.getRemoteAddress());
+                        logger.info("Client {} closed connection", socketChannel.getRemoteAddress());
                         return;
                     }
 
