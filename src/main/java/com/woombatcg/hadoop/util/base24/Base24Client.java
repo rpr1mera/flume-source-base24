@@ -79,7 +79,7 @@ public class Base24Client {
 
     public static byte[] readFile() throws IOException {
         return Files.readAllBytes(
-                Paths.get("resources/input.0800")
+                Paths.get("resources/input")
         );
     }
 
