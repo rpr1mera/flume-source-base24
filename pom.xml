@@ -17,7 +17,8 @@
                 <configuration>
                     <outputDirectory>/home/rprimera/woombat/davivienda/base24/dev/apache-flume-1.6.0-cdh5.14.4-bin/lib</outputDirectory>
                 </configuration>
-            </plugin><plugin>
+            </plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
@@ -34,6 +35,7 @@
             <artifactId>flume-ng-core</artifactId>
             <version>1.6.0</version>
         </dependency>
+
         <dependency>
             <groupId>org.jpos</groupId>
             <artifactId>jpos</artifactId>

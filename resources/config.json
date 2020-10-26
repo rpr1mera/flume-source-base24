@@ -1,0 +1,84 @@
+{
+  "messages": {
+    "spec": [
+      {
+          "key":"0100",
+          "resp": "0110",
+          "fields":
+          [{"field_id": 39, "value": "00"}]
+      },
+      {
+          "key":"0120",
+          "resp": "0130",
+          "fields":
+          [{"field_id": 39, "value": "00"}]
+      },
+      {
+          "key":"0121",
+          "resp": "0131",
+          "fields":
+          [{"field_id": 39, "value": "00"}]
+      },
+      {
+          "key":"0200",
+          "resp": "0210",
+          "fields":
+          [{"field_id": 39, "value": "00"}]
+      },
+      {
+          "key":"0220",
+          "resp": "0230",
+          "fields":
+          [{"field_id": 39, "value": "00"}]
+      },
+      {
+          "key":"0221",
+          "resp": "0230",
+          "fields":
+          [{"field_id": 39, "value": "00"}]
+      },
+      {
+          "key":"0402",
+          "resp": "0412",
+          "fields":
+          [{"field_id": 39, "value": "00"}]
+      },
+      {
+          "key":"0420",
+          "resp": "0430",
+          "fields":
+          [{"field_id": 39, "value": "00"}]
+      },
+      {
+          "key":"0421",
+          "resp": "0430",
+          "fields":
+          [{"field_id": 39, "value": "00"}]
+      },
+      {
+          "key":"0500",
+          "resp": "0510",
+          "fields":
+          [{"field_id": 39, "value": "00"}]
+      },
+      {
+          "key":"0520",
+          "resp": "0530",
+          "fields":
+          [{"field_id": 39, "value": "00"}]
+      },
+      {
+          "key":"0521",
+          "resp": "0530",
+          "fields":
+          [{"field_id": 39, "value": "00"}]
+      },
+      {
+          "key":"0800",
+          "resp": "0810",
+          "fields":
+          [{"field_id": 39, "value": "00"}]
+      }
+    ]
+  }
+}

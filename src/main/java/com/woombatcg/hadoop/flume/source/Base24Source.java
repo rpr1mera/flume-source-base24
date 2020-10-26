@@ -31,6 +31,10 @@ import org.apache.flume.event.EventBuilder;
 import org.apache.flume.source.AbstractSource;
 import org.jpos.iso.ISOException;
 import org.jpos.iso.ISOPackager;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,6 +57,9 @@ public class Base24Source extends AbstractSource implements Configurable,
     private int bufferSize;
     private boolean base24Interactive;
     private String outputFormat;
+    private String jsonFile;
+    private JSONArray jsonConfArray = new JSONArray();
+
 
     private CounterGroup counterGroup;
     private ServerSocketChannel serverSocketChannel;
@@ -75,15 +82,34 @@ public class Base24Source extends AbstractSource implements Configurable,
         String hostKey = Base24SourceConfigurationConstants.CONFIG_HOSTNAME;
         String portKey = Base24SourceConfigurationConstants.CONFIG_PORT;
         String base24InteractiveKey = Base24SourceConfigurationConstants.BASE24_INTERACTIVE;
+        String jsonFileKey = Base24SourceConfigurationConstants.JSON_PARAMS;
         String bufferSizeKey = Base24SourceConfigurationConstants.BUFFER_SIZE;
         String outputFormatKey = Base24SourceConfigurationConstants.OUTPUT_FORMAT;
 
-        Configurables.ensureRequiredNonNull(context, hostKey, portKey);
+        Configurables.ensureRequiredNonNull(context, hostKey, portKey, jsonFileKey);
 
         hostName = context.getString(hostKey);
         port = context.getInteger(portKey);
         base24Interactive = context.getBoolean(base24InteractiveKey, true);
+        jsonFile= context.getString(jsonFileKey);;
+        logger.info("jsonFile: {}",jsonFile);
+        JSONParser jsonParser = new JSONParser();
 
+        try (FileReader reader = new FileReader(jsonFile))
+        {
+            //Read JSON file
+            Object obj = jsonParser.parse(reader);
+            JSONObject jsonObject = (JSONObject) obj;
+            JSONObject messagesObject = (JSONObject) jsonObject.get("messages");
+            JSONArray specList = (JSONArray) messagesObject.get("spec");
+            jsonConfArray = specList;
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
         bufferSize = context.getInteger(
                 bufferSizeKey,
                 Base24SourceConfigurationConstants.DEFAULT_BUFFER_SIZE
@@ -120,7 +146,7 @@ public class Base24Source extends AbstractSource implements Configurable,
             throw new FlumeException(e);
         }
 
-        AcceptHandler acceptRunnable = new AcceptHandler(bufferSize, outputFormat);
+        AcceptHandler acceptRunnable = new AcceptHandler(bufferSize, outputFormat, jsonConfArray);
         acceptThreadShouldStop.set(false);
         acceptRunnable.counterGroup = counterGroup;
         acceptRunnable.handlerService = handlerService;
@@ -204,12 +230,14 @@ public class Base24Source extends AbstractSource implements Configurable,
         private AtomicBoolean shouldStop;
         private boolean base24Interactive;
         private String outputFormat;
+        private JSONArray jsonConfArray;
 
         private final int bufferSize;
 
-        public AcceptHandler(int bufferSize, String outputFormat) {
+        public AcceptHandler(int bufferSize, String outputFormat, JSONArray jsonArray) {
             this.bufferSize = bufferSize;
             this.outputFormat = outputFormat;
+            this.jsonConfArray = jsonArray;
         }
 
         @Override
@@ -220,7 +248,7 @@ public class Base24Source extends AbstractSource implements Configurable,
                 try {
                     SocketChannel socketChannel = serverSocketChannel.accept();
 
-                    Base24SocketHandler request = new Base24SocketHandler(bufferSize, outputFormat);
+                    Base24SocketHandler request = new Base24SocketHandler(bufferSize, outputFormat, jsonConfArray);
 
                     request.socketChannel = socketChannel;
                     request.counterGroup = counterGroup;
@@ -250,12 +278,14 @@ public class Base24Source extends AbstractSource implements Configurable,
         private SocketChannel socketChannel;
         private boolean base24Interactive;
         private String outputFormat;
+        private JSONArray jsonConfArray = new JSONArray();
 
         private final int bufferSize;
 
-        public Base24SocketHandler(int bufferSize, String outputFormat) {
+        public Base24SocketHandler(int bufferSize, String outputFormat, JSONArray jsonArray) {
             this.bufferSize = bufferSize;
             this.outputFormat = outputFormat;
+            this.jsonConfArray=jsonArray;
         }
 
         /**
@@ -438,7 +468,9 @@ public class Base24Source extends AbstractSource implements Configurable,
 
                 if (base24Interactive) {
                     // The base24 answer message should be written to the socket here.
-                    byte[] msgResponseBytes = Base24ResponseLogic.handle(msg);
+                    //System.out.println("jsonObject before passing: " + jsonConfArray.toString());
+
+                    byte[] msgResponseBytes = Base24ResponseLogic.handle(msg, jsonConfArray);
                     int fullMsgResponseLength = (
                             2 + isoLiteralBytes.length + base24HeaderBytes.length + msgResponseBytes.length
                     );

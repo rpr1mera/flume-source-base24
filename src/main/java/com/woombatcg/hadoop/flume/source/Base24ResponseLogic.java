@@ -1,91 +1,63 @@
 package com.woombatcg.hadoop.flume.source;
-
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
 import org.jpos.iso.ISOException;
 import org.jpos.iso.ISOMsg;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class Base24ResponseLogic {
-    public static byte[] handle(ISOMsg msg) throws ISOException {
+    private static final Logger logger = LoggerFactory
+            .getLogger(Base24Source.class);
 
-        ISOMsg msgResponse = (ISOMsg) msg.clone();
-        byte[] msgResponseBytes = new byte[]{};
+    static ISOMsg handleSpecjsonArray(ISOMsg msgResponse, JSONArray jsonArray) throws ISOException {
+        String mti = msgResponse.getMTI();
+        try{
+            logger.info("Matching configuration keys to MTI=" + mti);
+            for (Object o : jsonArray) {
+                JSONObject jsonObject = (JSONObject) o;
+                String key = (String) jsonObject.get("key");
+                logger.info("Key=" + key);
 
-        try {
-            String mti = msg.getMTI();
-            switch (mti) {
-                // Message Class: Authorization
-                case "0100" : {
-                    msgResponse.setMTI("0110");
-                    msgResponse.set(39, "00");
-                    msgResponseBytes = msgResponse.pack();
-                    break;
-                }
-                case "0121":
-                case "0120" : {
-                    msgResponse.setMTI("0130");
-                    msgResponse.set(39, "00");
-                    msgResponseBytes = msgResponse.pack();
-                    break;
-                }
+                if (key.equals(mti)) {
+                    logger.info("Configuration found for MTI=" + mti);
 
-                // Message Class: Financial Transaction
-                case "0200" : {
-                    msgResponse.setMTI("0210");
-                    msgResponse.set(39, "00");
-                    msgResponseBytes = msgResponse.pack();
-                    break;
-                }
-                case "0221":
-                case "0220" : {
-                    msgResponse.setMTI("0230");
-                    msgResponse.set(39, "00");
-                    msgResponseBytes = msgResponse.pack();
-                    break;
-                }
+                    String resp = (String) jsonObject.get("resp");
+                    logger.info("Setting response code to " + resp);
+                    msgResponse.setMTI(resp);
 
-                // Message Class: Reversal
-                case "0402" : {
-                    msgResponse.setMTI("0412");
-                    msgResponse.set(39, "00");
-                    msgResponseBytes = msgResponse.pack();
-                    break;
-                }
-                case "0420":
-                case "0421" : {
-                    msgResponse.setMTI("0430");
-                    msgResponse.set(39, "00");
-                    msgResponseBytes = msgResponse.pack();
-                    break;
-                }
+                    JSONArray fieldsList = (JSONArray) jsonObject.get("fields");
+                    logger.info("Response fields configuration = " + fieldsList.toJSONString());
 
-                // Reconciliation Control
-                case "0500" : {
-                    msgResponse.setMTI("0510");
-                    msgResponse.set(39, "00");
-                    msgResponseBytes = msgResponse.pack();
-                    break;
-                }
-                case "0521":
-                case "0520" : {
-                    msgResponse.setMTI("0530");
-                    msgResponse.set(39, "00");
-                    msgResponseBytes = msgResponse.pack();
-                    break;
-                }
 
-                // Network Management
-                case "0800": {
-                    msgResponse.setMTI("0810");
-                    msgResponse.set(39, "00");
-                    msgResponseBytes = msgResponse.pack();
+                    for (Object item : fieldsList) {
+                        JSONObject fieldsJson = (JSONObject) item;
+                        int field_id = ((Long) fieldsJson.get("field_id")).intValue();
+                        String value = (String) fieldsJson.get("value");
+                        logger.info("Setting field id p-" + field_id + " to value=" + value);
+                        msgResponse.set(field_id, value);
+                    }
                     break;
-                }
-
-                default: {
-                    // Revise this
-//                    msgResponseBytes = msgResponse.pack();
-                    throw new ISOException(String.format("MTI '%s' is not supported by Base24", mti));
                 }
             }
+        } catch (ISOException e) {
+            e.printStackTrace();
+            throw e;
+        }
+        return msgResponse;
+    }
+
+
+    public static byte[] handle(ISOMsg msg, JSONArray jsonArray) throws ISOException {
+
+        JSONParser jsonParser = new JSONParser();
+        ISOMsg msgResponse = (ISOMsg) msg.clone();
+        byte[] msgResponseBytes;
+
+        try {
+            msgResponse =handleSpecjsonArray(msgResponse,jsonArray);
+            msgResponseBytes = msgResponse.pack();
         } catch (ISOException e) {
             e.printStackTrace();
             throw e;

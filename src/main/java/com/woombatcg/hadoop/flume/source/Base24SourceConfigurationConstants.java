@@ -19,6 +19,11 @@ public class Base24SourceConfigurationConstants {
     public static final String BASE24_INTERACTIVE = "b24-interactive";
 
     /**
+     * Attempt to answer the received message via base24 response handler logic
+     */
+    public static final String JSON_PARAMS = "jsonParamsFile";
+
+    /**
      * Buffer
      */
     public static final String BUFFER_SIZE = "bufferSize";
