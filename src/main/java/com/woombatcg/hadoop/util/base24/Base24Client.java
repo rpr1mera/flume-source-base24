@@ -17,7 +17,7 @@ import org.apache.commons.codec.binary.Hex;
 
 
 public class Base24Client {
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) {
         if (args.length!=2) {
             System.out.println("Usage: java B24client.jar host port number_of_trx wait_time_x_trxs(ms)");
         }
